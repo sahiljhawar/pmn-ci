@@ -44,14 +44,8 @@ jobs:
         cmake ..
         make
         cd ../..
-        echo  "check files $(ls -l $HOME/work/pmn-ci/pmn-ci/MultiNest/lib)"
         echo "LD_LIBRARY_PATH=$HOME/work/pmn-ci/pmn-ci/MultiNest/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
         echo "DYLD_LIBRARY_PATH=$HOME/work/pmn-ci/pmn-ci/MultiNest/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
-        export LD_LIBRARY_PATH=$HOME/work/pmn-ci/pmn-ci/MultiNest/lib:$LD_LIBRARY_PATH
-        export DYLD_LIBRARY_PATH=$HOME/work/pmn-ci/pmn-ci/MultiNest/lib:$DYLD_LIBRARY_PATH
-        echo "LD PATH $LD_LIBRARY_PATH"
-        echo "DYLD PATH $DYLD_LIBRARY_PATH"
-        echo "LD PATH from env ${{ env.LD_LIBRARY_PATH }}"
 
     - name: Install Pymultinest
       run: |
