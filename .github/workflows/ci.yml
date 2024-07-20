@@ -1,0 +1,90 @@
+name: PMN CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["macos-latest"]
+        python-version: ['3.9', '3.10', '3.11']
+    steps:
+    - name: Checkout branch being tested
+      uses: actions/checkout@v3
+    - name: Set up Python with Conda ${{ matrix.python-version }}
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+        miniforge-version: latest
+        use-mamba: true
+        mamba-version: "*"
+        activate-environment: nmma_env
+
+    - name: Install dependencies
+      run: |
+        conda install -c conda-forge c-compiler numpy matplotlib scipy
+        brew install openmpi gcc cmake
+        echo "FC=$(which gfortran-11)" >> $GITHUB_ENV
+        echo "CC=$(which gcc)" >> $GITHUB_ENV
+        echo "CXX=$(which g++)" >> $GITHUB_ENV
+
+    - name: Install MultiNest
+      run: |
+        git clone https://github.com/JohannesBuchner/MultiNest
+        cd MultiNest/build
+        rm -rf *
+        cmake ..
+        make
+        cd ../..
+        echo  "check files $(ls -l $HOME/work/pmn-ci/pmn-ci/MultiNest/lib)"
+        echo "LD_LIBRARY_PATH=$HOME/work/pmn-ci/pmn-ci/MultiNest/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "DYLD_LIBRARY_PATH=$HOME/work/pmn-ci/pmn-ci/MultiNest/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+        export LD_LIBRARY_PATH=$HOME/work/pmn-ci/pmn-ci/MultiNest/lib:$LD_LIBRARY_PATH
+        export DYLD_LIBRARY_PATH=$HOME/work/pmn-ci/pmn-ci/MultiNest/lib:$DYLD_LIBRARY_PATH
+        echo "LD PATH $LD_LIBRARY_PATH"
+        echo "DYLD PATH $DYLD_LIBRARY_PATH"
+        echo "LD PATH from env ${{ env.LD_LIBRARY_PATH }}"
+
+    - name: Install Pymultinest
+      run: |
+        python -V
+        python -m pip install --upgrade pip
+        pip install pymultinest corner
+
+    - name: install mpi4py
+      run: |
+        pip install --user mpi4py
+        python -c 'import mpi4py'
+
+    - name: Test imports
+      run: |
+        python -c 'import pymultinest'
+        rm -rf chains/
+
+    - name: Get PMN
+      run: |
+        git clone https://github.com/JohannesBuchner/PyMultiNest.git
+
+    - name: MPI tests
+      run: |
+        mpiexec -np 4 --oversubscribe python PyMultiNest/pymultinest_demo_minimal.py
+        mpiexec -np 4 --oversubscribe python PyMultiNest/pymultinest_demo.py
+
+    - name: Long filename test
+      run: |
+        python PyMultiNest/tests/pymultinest_long_name_test.py;
+    - name: Marginal scripts test
+      run: |
+        python PyMultiNest/multinest_marginals.py chains/3-
+        python PyMultiNest/multinest_marginals_corner.py chains/3-
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
